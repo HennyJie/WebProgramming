@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>My TodoList</title>
+    <meta content="initial-scale=1,maximum-scale=1,user-scalable=no,width=320px" name="viewport"/>
+    <link rel="stylesheet" href="todo.css">
+</head>
+
+<body>
+
+<div id="head">
+    <h1>ToDo List</h1>
+
+    <div class="toggle-btn" onclick="toggleSidebar()" tabindex=”-1″>
+        <div id="one"></div>
+        <div id="two"></div>
+        <div id="three"></div>
+    </div>
+
+    <div id="sidebar">
+        <ul class="filters">
+            <li><a class="selected">All</a></li>
+            <li><a class="" >Undo</a></li>
+            <li><a class="" >Done</a></li>
+        </ul>
+    </div>
+</div>
+
+<div class="input">
+    <input class="toggle-all" type="checkbox">
+    <input class="new-todo" type="text" placeholder="What needs to be done?" autofocus>
+    <span id="add"></span>
+</div>
+
+<div class="todoapp">
+    <div class="todo-list">
+    </div>
+
+    <div id="count-line">
+        <span class="todo-count"></span>
+    </div>
+
+    <footer class="footer">
+        <button class="clear-completed"><label>Clear Completed</label></button>
+    </footer>
+</div>
+
+<script src="hammer.min.js"></script>
+<script src="model.js"></script>
+<script src="ajax.js"></script>
+<script src="provider-ajax.js"></script>
+<script src="todo.js"></script>
+
+</body>
+</html>
