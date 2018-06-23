@@ -57,7 +57,6 @@ function update() {
             || (data.filter === 'Undo' && !itemData.completed)
             || (data.filter === 'Done' && itemData.completed)
         ) {
-            //主要修改的部分
             var item = document.createElement('section');
             item.classList.add('content');
             var id = 'item' + guid++;
@@ -65,65 +64,76 @@ function update() {
 
             item.innerHTML = [
                 '<div class="swipe-element">',
-                    '<div class="swipe-back">',
-                        '<button class="destroy">Delete</button>',
-                        '<button class="top">Top</button>',
-                    '</div>',
-                    '<p class="swipe-front">',
-                        '<input class="toggle" type="checkbox">',
-                        '<label class="todo-label">'+itemData.msg+'</label>',
-                    '</p>',
+                '<div class="swipe-back">',
+                '<button class="destroy">Delete</button>',
+                '<button class="top">Top</button>',
+                '</div>',
+                '<p class="swipe-front">',
+                '<input class="toggle" type="checkbox">',
+                '<label class="todo-label">'+itemData.msg+'</label>',
+                '</p>',
                 '</div>'
             ].join('');
 
+            //获取要绑定监听的dom元素
             var front = item.querySelector('.swipe-front');
-            //监听发生在front元素上的动作
-            var mc = new Hammer(front);
+            //触摸事件发生的位置
+            var client = 0;
+            //相对上一次的位置变化
+            var deltaX = 0;
+            //相对于原点的位置（原点指固定在右侧不滑动的时候）
+            var transX = 0;
+
+            front.addEventListener('touchstart', function (ev) {
+                console.log(ev);
+                client = ev.targetTouches[0].clientX;
+            }, true);
+
+            front.addEventListener('touchmove', function (ev) {
+                //计算位置变化量
+                deltaX = ev.targetTouches[0].clientX - client;
+                //更新client
+                client = ev.targetTouches[0].clientX;
+
+                //利用正则表达式匹配出上一次的transX
+                let reEx = /-?\d+/g;
+                //input:translate(-180px)
+                //prePer:["-180", index: 11, input: "translateX(-180px)", groups: undefined]
+                let prePer = reEx.exec(front.style.transform);
+                if (prePer !== null) {
+                    prePer = parseInt(prePer[0]);
+                    //transX为新的相对原点位置
+                    transX = deltaX + prePer;
+                }
+                else {
+                    transX = deltaX;
+                }
+                //限制一下端点
+                if (transX <= (-window.shiftWidth))
+                    transX = (-window.shiftWidth);
+                if (transX >= 0)
+                    transX = 0;
+                console.log(deltaX);
+                //实时更新位置属性
+                front.style.transform = 'translateX( ' + transX + 'px )';
+            }, true);
+
+            front.addEventListener('touchend', function (ev) {
+                //用来控制如果用户没有滑到头的话，就自动化滑到头
+                if (deltaX < 0 && transX > (-window.shiftWidth)) {
+                    finishLeft(front, transX)
+                }
+                else if (deltaX > 0 && transX < 0) {
+                    finishRight(front, transX)
+                }
+                clientX = 0;
+                deltaX = 0;
+                transX = 0;
+            }, true);
 
             var lab = item.querySelector('.todo-label');
             if (itemData.completed)
                 lab.classList.add(CL_COMPLETED);
-
-            // listen to events...
-            mc.on("panleft panright", function (ev) {
-
-                //当前位置，相对于最初点的变化
-                let percentage = ev.deltaX;
-
-                if(ev.type==='panright') {
-                    //利用正则表达式匹配出向右移动的距离
-                    let reEx = /-?\d+/g;
-                    //input:translate(-180px)
-                    //prePer:["-180", index: 11, input: "translateX(-180px)", groups: undefined]
-                    let prePer = reEx.exec(front.style.transform);
-                    if(prePer!==null) {
-                        //-180
-                        prePer = parseInt(prePer[0]);
-                        //
-                        percentage = percentage+prePer;
-                    }
-                }
-
-                //限制一下端点
-                if(percentage <= (-window.shiftWidth))
-                    percentage = (-window.shiftWidth);
-                if(percentage >= 0)
-                    percentage = 0;
-
-                //实时更新位移属性
-                front.style.transform = 'translateX( ' + percentage + 'px )';
-
-                //自动滑到头部
-                if(ev.isFinal) {
-                    if(ev.type==='panleft'&&percentage > (-window.shiftWidth)) {
-                        finishLeft(front, percentage)
-                    }
-                    else if(ev.type==='panright'&&percentage < 0) {
-                        finishRight(front, percentage)
-                    }
-                }
-
-            });
 
             //左滑单条to-do
             function finishLeft(ob, nowTran) {
@@ -134,7 +144,7 @@ function update() {
                     tran = (-window.shiftWidth);
                 ob.style.transform = 'translateX( ' + tran + 'px )';
                 if(nowTran!==tran)
-                    //重复执行，直到滑到头了
+                //重复执行，直到滑到头了
                     window.requestAnimationFrame(function() {
                         finishLeft(ob, tran)
                     })
@@ -147,27 +157,37 @@ function update() {
                     tran = 0;
                 ob.style.transform = 'translateX( ' + tran + 'px )';
                 if(nowTran!==tran)
-                    //重复执行，直到滑到头了
+                //重复执行，直到滑到头了
                     window.requestAnimationFrame(function() {
                         finishRight(ob, tran)
                     })
             }
 
-            var label = item.querySelector('.todo-label');
-            //将dom树节点传入，绑定事件
-            var ham = new Hammer(label);
-
             //double tap编辑单条to-do
-            ham.on('doubletap', function() {
-                label.classList.add(CL_EDITING);
+            var label = item.querySelector('.todo-label');
+            //记录此次点击上一次点击的发生时间
+            var latesttap = new Date().getTime();
 
+            label.addEventListener('touchstart', function() {
+                //记录当前时间
+                var now = new Date().getTime();
+                //检查两次点击时间间隔
+                var timesince = now - latesttap;
+                latesttap = now;
+                //如果时间间隔过大，不判断为dbclick
+                if(timesince >= 600 || timesince <= 0)
+                    return;
+                //否则就加入editing类
+                label.classList.add(CL_EDITING);
                 let del = item.querySelector('.swipe-front');
+                //新建一个输入框
                 var edit = document.createElement('input');
                 var finished = false;
                 edit.setAttribute('type', 'text');
                 edit.setAttribute('class', 'edit');
                 edit.setAttribute('value', label.innerHTML);
 
+                //对输入框停止编辑时（如光标移开）
                 function finish() {
                     if (finished) return;
                     finished = true;
